@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:kreisel_frontend/pages/login_page.dart';
-import 'package:kreisel_frontend/services/audio_service.dart';
-import 'package:kreisel_frontend/services/api_service.dart';
 import 'package:kreisel_frontend/services/admin_service.dart';
 
 void main() async {
@@ -19,6 +16,8 @@ void main() async {
 }
 
 class KreiselApp extends StatelessWidget {
+  const KreiselApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(

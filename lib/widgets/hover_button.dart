@@ -7,7 +7,8 @@ class HoverButton extends StatefulWidget {
   final String tooltip;
   final Color color;
 
-  HoverButton({
+  const HoverButton({
+    super.key,
     required this.child,
     required this.onPressed,
     required this.tooltip,

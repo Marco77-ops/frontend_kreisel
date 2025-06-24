@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'dart:math';
 
 class SnowFallWidget extends StatefulWidget {
+  const SnowFallWidget({super.key});
+
   @override
   _SnowFallWidgetState createState() => _SnowFallWidgetState();
 }
@@ -22,7 +24,7 @@ class _SnowFallWidgetState extends State<SnowFallWidget>
 
     // Initialize with dummy size, will be updated in build
     _screenSize = Size(1000, 1000);
-    
+
     // Create 150 snowflakes
     for (int i = 0; i < 150; i++) {
       _snowFlakes.add(SnowFlake(_screenSize));
@@ -33,7 +35,7 @@ class _SnowFallWidgetState extends State<SnowFallWidget>
   Widget build(BuildContext context) {
     // Get actual screen size
     _screenSize = MediaQuery.of(context).size;
-    
+
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {

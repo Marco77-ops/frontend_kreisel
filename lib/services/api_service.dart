@@ -5,8 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kreisel_frontend/models/user_model.dart';
 import 'package:kreisel_frontend/models/item_model.dart';
 import 'package:kreisel_frontend/models/rental_model.dart';
+import 'package:kreisel_frontend/models/review_model.dart'; // Add this import
 import 'dart:async';
-import 'dart:io';
 
 class ApiService {
   static const String baseUrl = 'http://localhost:8080/api';
@@ -78,26 +78,26 @@ class ApiService {
   static Future<Map<String, String>> _getAuthHeaders() async {
     final token = await _getToken();
     final cookie = await _getCookie();
-    
+
     final headers = <String, String>{
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     };
-    
+
     if (token != null) {
       headers['Authorization'] = 'Bearer $token';
       print('DEBUG: Added Authorization header');
     }
-    
+
     if (cookie != null) {
       headers['Cookie'] = cookie;
       print('DEBUG: Added Cookie header');
     }
-    
+
     if (token == null && cookie == null) {
       print('DEBUG: WARNING - No authentication headers available');
     }
-    
+
     return headers;
   }
 
@@ -277,7 +277,7 @@ class ApiService {
   static Future<User> getCurrentUser() async {
     try {
       print('DEBUG: === Getting current user data ===');
-      
+
       if (currentUser != null) {
         print('DEBUG: Using cached user');
         return currentUser!;
@@ -285,22 +285,21 @@ class ApiService {
 
       final token = await _getToken();
       final cookie = await _getCookie();
-      
+
       if (token == null && cookie == null) {
         throw Exception('Nicht angemeldet');
       }
 
-      final response = await http.get(
-        Uri.parse('$baseUrl/users/me'),
-        headers: await _getAuthHeaders(),
-      ).timeout(Duration(seconds: 10));
+      final response = await http
+          .get(Uri.parse('$baseUrl/users/me'), headers: await _getAuthHeaders())
+          .timeout(Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final userData = jsonDecode(response.body);
         currentUser = User.fromJson(userData);
         return currentUser!;
-      } 
-      
+      }
+
       if (response.statusCode == 401 || response.statusCode == 403) {
         await _removeToken();
         throw Exception('Session abgelaufen');
@@ -326,9 +325,7 @@ class ApiService {
           ...await _getAuthHeaders(),
           'Content-Type': 'application/json',
         },
-        body: jsonEncode({
-          'fullName': newName.trim(),
-        }),
+        body: jsonEncode({'fullName': newName.trim()}),
       );
 
       print('DEBUG: Update name response: ${response.statusCode}');
@@ -351,7 +348,10 @@ class ApiService {
     }
   }
 
-  static Future<void> updatePassword(String currentPassword, String newPassword) async {
+  static Future<void> updatePassword(
+    String currentPassword,
+    String newPassword,
+  ) async {
     final headers = await _getAuthHeaders();
     final response = await http.put(
       Uri.parse('$baseUrl/users/me/password'),
@@ -370,7 +370,9 @@ class ApiService {
       return;
     } else if (response.statusCode == 400) {
       // Bad request - could be wrong current password or validation error
-      throw Exception('Aktuelles Passwort ist falsch oder neues Passwort ist ungültig');
+      throw Exception(
+        'Aktuelles Passwort ist falsch oder neues Passwort ist ungültig',
+      );
     } else {
       throw _handleError(response);
     }
@@ -380,11 +382,11 @@ class ApiService {
   static Future<List<Item>> getItems({required String location}) async {
     try {
       print('DEBUG: Fetching items from API for location: $location');
-      
+
       // Standardize location format
       final standardizedLocation = location.toUpperCase().trim();
       print('DEBUG: Standardized location: $standardizedLocation');
-      
+
       final response = await http.get(
         Uri.parse('$baseUrl/items?location=$standardizedLocation'),
         headers: await _getAuthHeaders(),
@@ -654,6 +656,35 @@ class ApiService {
     }
   }
 
+  /// Converts a relative image URL to a full URL
+  ///
+  /// This method ensures image URLs work properly regardless of how they're stored
+  /// (relative or absolute paths)
+  static String getFullImageUrl(String? imageUrl) {
+    if (imageUrl == null || imageUrl.isEmpty) {
+      return '';
+    }
+
+    // If it already starts with http or https, it's a complete URL
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      return imageUrl;
+    }
+
+    // Extract base server URL (without /api)
+    String serverUrl = baseUrl;
+    if (serverUrl.endsWith('/api')) {
+      serverUrl = serverUrl.substring(0, serverUrl.length - 4);
+    }
+
+    // If it starts with slash, append to server base URL
+    if (imageUrl.startsWith('/')) {
+      return '$serverUrl$imageUrl';
+    }
+
+    // Otherwise append to API URL
+    return '$baseUrl/$imageUrl';
+  }
+
   // Verbesserte Fehlerbehandlung
   static Exception _handleError(http.Response response) {
     try {
@@ -692,6 +723,221 @@ class ApiService {
     } catch (e) {
       print('DEBUG: Token refresh failed: $e');
       return false;
+    }
+  }
+
+  // ===== REVIEW SERVICE METHODS =====
+
+  /// Creates a review for a completed rental
+  static Future<Review> createReview({
+    required int rentalId,
+    required int rating,
+    String? comment,
+  }) async {
+    try {
+      final headers = await _getAuthHeaders();
+
+      final body = {
+        'rating': rating,
+        'rentalId': rentalId,
+        if (comment != null && comment.isNotEmpty) 'comment': comment,
+      };
+
+      print('DEBUG: Creating review with data: $body');
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/reviews'),
+        headers: headers,
+        body: jsonEncode(body),
+      );
+
+      print('DEBUG: Review creation response: ${response.statusCode}');
+      print('DEBUG: Response body: ${response.body}');
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        final reviewData = jsonDecode(response.body);
+        return Review.fromMap(reviewData);
+      }
+
+      if (response.statusCode == 400) {
+        throw Exception(
+          'Sie haben dieses Item bereits bewertet oder die Bewertung ist ungültig.',
+        );
+      }
+
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        await _removeToken();
+        throw Exception('Bitte erneut anmelden');
+      }
+
+      throw Exception('Fehler beim Erstellen der Bewertung');
+    } catch (e) {
+      print('DEBUG: Error creating review: $e');
+      rethrow;
+    }
+  }
+
+  /// Get reviews for a specific item
+  // In ApiService.getReviewsForItem method
+  static Future<List<Review>> getReviewsForItem(int itemId) async {
+    try {
+      final headers = await _getAuthHeaders();
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/reviews/item/$itemId'),
+        headers: headers,
+      );
+
+      print('DEBUG: Get reviews response: ${response.statusCode}');
+      print('DEBUG: Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        print('DEBUG: Parsed response type: ${responseData.runtimeType}');
+
+        // Handle different response formats
+        if (responseData is List) {
+          // If response is already a list of reviews
+          return responseData.map((json) => Review.fromMap(json)).toList();
+        } else if (responseData is Map) {
+          // If response is a JSON object, look for the reviews list inside it
+          print(
+            'DEBUG: Response is a Map, keys: ${responseData.keys.toList()}',
+          );
+
+          // Try to find reviews in common wrapper fields
+          if (responseData.containsKey('reviews')) {
+            final reviewsList = responseData['reviews'] as List;
+            return reviewsList.map((json) => Review.fromMap(json)).toList();
+          } else if (responseData.containsKey('data')) {
+            final reviewsList = responseData['data'] as List;
+            return reviewsList.map((json) => Review.fromMap(json)).toList();
+          } else if (responseData.containsKey('content')) {
+            final reviewsList = responseData['content'] as List;
+            return reviewsList.map((json) => Review.fromMap(json)).toList();
+          } else if (responseData.containsKey('items')) {
+            final reviewsList = responseData['items'] as List;
+            return reviewsList.map((json) => Review.fromMap(json)).toList();
+          } else {
+            // If it's a single review object, return it as a list with one item
+            try {
+              // Cast the map to ensure keys are String
+              final Map<String, dynamic> typedMap = Map<String, dynamic>.from(
+                responseData,
+              );
+              final review = Review.fromMap(typedMap);
+              return [review];
+            } catch (e) {
+              print('DEBUG: Could not parse as single review: $e');
+              return [];
+            }
+          }
+        }
+
+        // Fallback - if we couldn't figure out the structure
+        print('DEBUG: Unhandled response structure: $responseData');
+        return [];
+      }
+
+      if (response.statusCode == 404) {
+        return []; // No reviews found
+      }
+
+      throw Exception('Fehler beim Laden der Bewertungen');
+    } catch (e) {
+      print('DEBUG: Error getting reviews: $e');
+      rethrow;
+    }
+  }
+
+  /// Checks if a user has already reviewed a specific rental
+  static Future<bool> hasUserReviewedRental(int rentalId) async {
+    try {
+      final headers = await _getAuthHeaders();
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/reviews/rental/$rentalId/exists'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final result = jsonDecode(response.body);
+        return result['exists'] ?? false;
+      }
+
+      return false;
+    } catch (e) {
+      print('DEBUG: Error checking if rental was reviewed: $e');
+      return false;
+    }
+  }
+
+  /// Get the average rating for an item
+  static Future<double> getItemAverageRating(int itemId) async {
+    try {
+      final headers = await _getAuthHeaders();
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/reviews/item/$itemId/average'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final result = jsonDecode(response.body);
+        return (result['averageRating'] ?? 0.0).toDouble();
+      }
+
+      return 0.0;
+    } catch (e) {
+      print('DEBUG: Error getting item average rating: $e');
+      return 0.0;
+    }
+  }
+
+  // Review Methods
+  static Future<List<Review>> getItemReviews(int itemId) async {
+    try {
+      print('DEBUG: Fetching reviews for item $itemId');
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/reviews/item/$itemId'),
+        headers: await _getAuthHeaders(),
+      );
+
+      print('DEBUG: Get reviews response: ${response.statusCode}');
+      print('DEBUG: Reviews response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final dynamic jsonData = jsonDecode(response.body);
+
+        // Handle both array and object responses
+        List<dynamic> reviewsJson;
+        if (jsonData is Map<String, dynamic>) {
+          // If response is an object, look for reviews array within it
+          reviewsJson = jsonData['reviews'] ?? [];
+        } else if (jsonData is List) {
+          // If response is already an array
+          reviewsJson = jsonData;
+        } else {
+          print('DEBUG: Unexpected reviews data format: $jsonData');
+          return [];
+        }
+
+        print('DEBUG: Found ${reviewsJson.length} reviews to parse');
+
+        // Parse reviews using fromMap instead of fromJson
+        final reviews =
+            reviewsJson.map((json) => Review.fromMap(json)).toList();
+        print('DEBUG: Successfully parsed ${reviews.length} reviews');
+        return reviews;
+      } else {
+        print('DEBUG: Error response from API: ${response.statusCode}');
+        throw _handleError(response);
+      }
+    } catch (e) {
+      print('DEBUG: Error getting reviews: $e');
+      print('DEBUG: Stack trace: ${StackTrace.current}');
+      return []; // Return empty list instead of throwing
     }
   }
 }

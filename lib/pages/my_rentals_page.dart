@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:kreisel_frontend/models/rental_model.dart';
 import 'package:kreisel_frontend/services/api_service.dart';
+import 'package:kreisel_frontend/widgets/create_review_dialog.dart';
 
 class MyRentalsPage extends StatefulWidget {
-  const MyRentalsPage({Key? key}) : super(key: key);
+  const MyRentalsPage({super.key});
 
   @override
   _MyRentalsPageState createState() => _MyRentalsPageState();
@@ -43,14 +44,14 @@ class _MyRentalsPageState extends State<MyRentalsPage> {
       setState(() => _isLoading = true);
       final activeRentals = await ApiService.getUserActiveRentals();
       final historicalRentals = await ApiService.getUserRentalHistory();
-      
+
       if (mounted) {
         setState(() {
           _activeRentals = activeRentals;
           _pastRentals = historicalRentals;
           _isLoading = false;
         });
-        _debugRentals(); // Add this line
+        _debugRentals();
       }
     } catch (e) {
       print('DEBUG: Error loading rentals: $e');
@@ -71,7 +72,7 @@ class _MyRentalsPageState extends State<MyRentalsPage> {
           (context) => CupertinoAlertDialog(
             title: const Text('Item zurückgeben'),
             content: Text(
-              'Möchten Sie ${rental.item.name} wirklich zurückgeben?', // Changed from Item #${rental.itemId}
+              'Möchten Sie ${rental.item.name} wirklich zurückgeben?',
             ),
             actions: [
               CupertinoDialogAction(
@@ -104,6 +105,23 @@ class _MyRentalsPageState extends State<MyRentalsPage> {
     );
   }
 
+  void _showReviewDialog(Rental rental) {
+    showCupertinoDialog(
+      context: context,
+      builder:
+          (context) => CreateReviewDialog(
+            rental: rental,
+            onReviewSubmitted: () {
+              _loadRentals();
+              _showAlert(
+                'Vielen Dank!',
+                'Ihre Bewertung wurde erfolgreich gespeichert.',
+              );
+            },
+          ),
+    );
+  }
+
   Future<void> _extendRental(Rental rental) async {
     showCupertinoDialog(
       context: context,
@@ -114,7 +132,7 @@ class _MyRentalsPageState extends State<MyRentalsPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const SizedBox(height: 16),
-                Text(rental.item.name), // Changed from Item #${rental.item.id}
+                Text(rental.item.name),
                 const SizedBox(height: 8),
                 const Text('Die Ausleihe wird um einen Monat verlängert.'),
                 const SizedBox(height: 8),
@@ -167,13 +185,13 @@ class _MyRentalsPageState extends State<MyRentalsPage> {
   void _debugRentals() {
     print('DEBUG: ---- Rental Debug Info ----');
     print('Active rentals: ${_activeRentals.length}');
-    _activeRentals.forEach((rental) {
+    for (var rental in _activeRentals) {
       print('Active: ${rental.item.name} - Status: ${rental.status}');
-    });
+    }
     print('Past rentals: ${_pastRentals.length}');
-    _pastRentals.forEach((rental) {
+    for (var rental in _pastRentals) {
       print('Past: ${rental.item.name} - Returned: ${rental.returnDate}');
-    });
+    }
   }
 
   @override
@@ -271,7 +289,7 @@ class _MyRentalsPageState extends State<MyRentalsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            rental.item.name, // Changed from Item #${rental.itemId}
+            rental.item.name,
             style: const TextStyle(
               color: Colors.white,
               fontSize: 18,
@@ -328,7 +346,7 @@ class _MyRentalsPageState extends State<MyRentalsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            rental.item.name, // Changed from Item #${rental.itemId}
+            rental.item.name,
             style: const TextStyle(
               color: Colors.white,
               fontSize: 18,
@@ -343,6 +361,16 @@ class _MyRentalsPageState extends State<MyRentalsPage> {
           Text(
             'Zurückgegeben: ${rental.returnDate != null ? _formatDate(rental.returnDate!) : 'N/A'}',
             style: const TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: CupertinoButton(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              color: const Color(0xFF5856D6), // Purple color
+              child: const Text('Bewerten'),
+              onPressed: () => _showReviewDialog(rental),
+            ),
           ),
         ],
       ),

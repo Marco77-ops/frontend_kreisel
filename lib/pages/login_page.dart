@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:kreisel_frontend/pages/home_page.dart';
 import 'package:kreisel_frontend/services/api_service.dart';
 import 'package:kreisel_frontend/pages/location_selection_page.dart';
 import 'package:kreisel_frontend/services/admin_service.dart';
 import 'package:kreisel_frontend/pages/admin_dashboard.dart';
 
 class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
+
   @override
   _LoginPageState createState() => _LoginPageState();
 }
@@ -105,7 +106,7 @@ class _LoginPageState extends State<LoginPage> {
                 SizedBox(height: 32),
 
                 // Action Button
-                Container(
+                SizedBox(
                   width: double.infinity,
                   height: 54,
                   child: CupertinoButton(

@@ -1,3 +1,7 @@
+import 'dart:io' if (dart.library.html) 'dart:html';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:kreisel_frontend/services/admin_service.dart';
@@ -5,8 +9,11 @@ import 'package:kreisel_frontend/models/item_model.dart';
 import 'package:kreisel_frontend/models/rental_model.dart';
 import 'package:kreisel_frontend/models/user_model.dart';
 import 'package:kreisel_frontend/pages/login_page.dart';
+import 'package:image_picker/image_picker.dart';
 
 class AdminDashboard extends StatefulWidget {
+  const AdminDashboard({super.key});
+
   @override
   _AdminDashboardState createState() => _AdminDashboardState();
 }
@@ -197,11 +204,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
       ),
       floatingActionButton:
           _selectedTab ==
-                  0 // Wenn Items-Tab ausgewählt ist
+                  0 // When Items tab is selected
               ? FloatingActionButton(
                 backgroundColor: Color(0xFF007AFF),
-                child: Icon(Icons.add, color: Colors.white),
                 onPressed: _createItem,
+                child: Icon(Icons.add, color: Colors.white),
               )
               : null,
     );
@@ -255,6 +262,33 @@ class _AdminDashboardState extends State<AdminDashboard> {
               color: Color(0xFF1C1C1E),
               margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: ListTile(
+                leading:
+                    _items[index].imageUrl != null
+                        ? ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: Image.network(
+                            _items[index].imageUrl!,
+                            width: 50,
+                            height: 50,
+                            fit: BoxFit.cover,
+                            errorBuilder:
+                                (context, error, stackTrace) => Container(
+                                  width: 50,
+                                  height: 50,
+                                  color: Colors.grey[800],
+                                  child: Icon(
+                                    Icons.image_not_supported,
+                                    size: 24,
+                                  ),
+                                ),
+                          ),
+                        )
+                        : Container(
+                          width: 50,
+                          height: 50,
+                          color: Colors.grey[800],
+                          child: Icon(Icons.image, size: 24),
+                        ),
                 title: Text(
                   _items[index].name,
                   style: TextStyle(
@@ -294,7 +328,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     SizedBox(height: 4),
                   ],
                 ),
-                trailing: Container(
+                trailing: SizedBox(
                   width: 100,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -330,48 +364,60 @@ class _AdminDashboardState extends State<AdminDashboard> {
       onRefresh: _loadData,
       child: ListView.builder(
         itemCount: _rentals.length,
-        itemBuilder:
-            (context, index) => Card(
-              color: Color(0xFF1C1C1E),
-              margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: ListTile(
-                title: Text(
-                  'Rental #${_rentals[index].id}',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(height: 4),
-                    Text(
-                      'User: ${_rentals[index].user.fullName}',
-                      style: TextStyle(color: Colors.grey[400]),
-                    ),
-                    Text(
-                      'Email: ${_rentals[index].user.email}',
-                      style: TextStyle(color: Colors.grey[400]),
-                    ),
-                    Text(
-                      'Item: ${_rentals[index].item.name}',
-                      style: TextStyle(color: Colors.grey[400]),
-                    ),
-                    Text(
-                      'Status: ${_rentals[index].status}',
-                      style: TextStyle(
-                        color: _getStatusColor(_rentals[index].status),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                  ],
+        itemBuilder: (context, index) {
+          final rental = _rentals[index];
+
+          return Card(
+            color: Color(0xFF1C1C1E),
+            margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: ListTile(
+              title: Text(
+                rental.item.name,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(height: 4),
+                  Text(
+                    'User ID: ${rental.userId}', // Changed to show user ID
+                    style: TextStyle(color: Colors.grey[400]),
+                  ),
+                  Text(
+                    'Status: ${rental.status}',
+                    style: TextStyle(
+                      color: _getStatusColor(rental.status),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                ],
+              ),
             ),
+          );
+        },
       ),
     );
+  }
+
+  String _formatStatus(String status) {
+    switch (status.toUpperCase()) {
+      case 'ACTIVE':
+        return 'Aktiv';
+      case 'OVERDUE':
+        return 'Überfällig';
+      case 'RETURNED':
+        return 'Zurückgegeben';
+      default:
+        return status;
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
   }
 
   Color _getStatusColor(String status) {
@@ -443,162 +489,331 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
     // For location, use current selected location for new items
     String selectedLocation =
-        isCreating ? _selectedLocation : (item?.location ?? LOCATIONS.first);
+        isCreating ? _selectedLocation : (item.location ?? LOCATIONS.first);
     String selectedGender = item?.gender ?? GENDERS.first;
     String selectedCategory = item?.category ?? CATEGORIES.first;
     String selectedSubcategory =
         item?.subcategory ?? SUBCATEGORIES[CATEGORIES.first]!.first;
     String selectedZustand = item?.zustand ?? CONDITIONS.first;
 
-    final result = await showDialog<bool>(
+    // Image picker variables
+    final ImagePicker picker = ImagePicker();
+    Uint8List? selectedImageBytes;
+    String? selectedImageName;
+    String? existingImageUrl = item?.imageUrl;
+    bool isUploading = false;
+
+    showDialog(
       context: context,
-      barrierDismissible: false,
-      builder:
-          (context) => StatefulBuilder(
-            builder:
-                (context, setDialogState) => AlertDialog(
-                  backgroundColor: Color(0xFF1C1C1E),
-                  title: Text(
-                    isCreating ? 'Neues Item erstellen' : 'Item bearbeiten',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  content: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildLabeledTextField('Name:', nameController),
-                        _buildLabeledTextField(
-                          'Beschreibung:',
-                          descriptionController,
-                        ),
-                        _buildLabeledTextField('Marke:', brandController),
-                        _buildLabeledTextField('Größe:', sizeController),
-
-                        // Location Dropdown
-                        _buildLabeledDropdown(
-                          'Standort:',
-                          selectedLocation,
-                          LOCATIONS,
-                          (value) =>
-                              setDialogState(() => selectedLocation = value!),
-                        ),
-
-                        // Gender Dropdown
-                        _buildLabeledDropdown(
-                          'Gender:',
-                          selectedGender,
-                          GENDERS,
-                          (value) =>
-                              setDialogState(() => selectedGender = value!),
-                        ),
-
-                        // Category Dropdown
-                        _buildLabeledDropdown(
-                          'Kategorie:',
-                          selectedCategory,
-                          CATEGORIES,
-                          (value) {
-                            setDialogState(() {
-                              selectedCategory = value!;
-                              // Reset subcategory when category changes
-                              selectedSubcategory = SUBCATEGORIES[value]!.first;
-                            });
-                          },
-                        ),
-
-                        // Subcategory Dropdown
-                        _buildLabeledDropdown(
-                          'Unterkategorie:',
-                          selectedSubcategory,
-                          SUBCATEGORIES[selectedCategory]!,
-                          (value) => setDialogState(
-                            () => selectedSubcategory = value!,
-                          ),
-                        ),
-
-                        // Zustand Dropdown
-                        _buildLabeledDropdown(
-                          'Zustand:',
-                          selectedZustand,
-                          CONDITIONS,
-                          (value) =>
-                              setDialogState(() => selectedZustand = value!),
-                        ),
-                      ],
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: Color(0xFF1C1C1E),
+              title: Text(
+                isCreating ? 'Neues Item erstellen' : 'Item bearbeiten',
+                style: TextStyle(color: Colors.white),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Image picker section
+                    Text(
+                      'Bild:',
+                      style: TextStyle(color: Colors.grey, fontSize: 12),
                     ),
-                  ),
-                  actions: [
-                    TextButton(
-                      child: Text(
-                        'Abbrechen',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                      onPressed: () => Navigator.pop(context, false),
-                    ),
-                    TextButton(
-                      child: Text(
-                        isCreating ? 'Erstellen' : 'Speichern',
-                        style: TextStyle(color: Color(0xFF007AFF)),
-                      ),
-                      onPressed: () async {
-                        // Validate required fields
-                        if (nameController.text.trim().isEmpty) {
-                          _showError('Name ist erforderlich');
-                          return;
-                        }
+                    SizedBox(height: 4),
+                    InkWell(
+                      onTap: () async {
+                        final XFile? image = await picker.pickImage(
+                          source: ImageSource.gallery,
+                          maxWidth: 1200,
+                          maxHeight: 1200,
+                          imageQuality: 90,
+                        );
+                        if (image != null) {
+                          selectedImageName = image.name;
 
-                        try {
-                          final updatedItem = Item(
-                            id: item?.id ?? 0,
-                            name: nameController.text.trim(),
-                            description: descriptionController.text.trim(),
-                            brand: brandController.text.trim(),
-                            size: sizeController.text.trim(),
-                            available: item?.available ?? true,
-                            location: selectedLocation,
-                            gender: selectedGender,
-                            category: selectedCategory,
-                            subcategory: selectedSubcategory,
-                            zustand: selectedZustand,
-                          );
-
-                          if (isCreating) {
-                            try {
-                              await AdminService.createItem(updatedItem);
-                              Navigator.pop(context, true);
-                            } catch (e) {
-                              print('DEBUG: Item creation failed: $e');
-                              _showError(e.toString());
-                            }
+                          if (kIsWeb) {
+                            // Web platform
+                            selectedImageBytes = await image.readAsBytes();
+                            setDialogState(() {});
                           } else {
-                            await AdminService.updateItem(
-                              item!.id,
-                              updatedItem,
-                            );
-                            Navigator.pop(context, true);
+                            // Mobile/desktop platforms
+                            selectedImageBytes = await image.readAsBytes();
+                            setDialogState(() {});
                           }
-                        } catch (e) {
-                          print('DEBUG: Item save error: $e');
-                          if (e.toString().contains('Token') ||
-                              e.toString().contains('401') ||
-                              e.toString().contains('403')) {
-                            Navigator.pop(context, false);
-                            _logout();
-                            return;
-                          }
-                          _showError(e.toString());
                         }
                       },
+                      child: Container(
+                        height: 150,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Color(0xFF2C2C2E),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Color(0xFF3C3C3E),
+                            width: 1,
+                          ),
+                        ),
+                        child:
+                            selectedImageBytes != null
+                                ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(7),
+                                  child: Image.memory(
+                                    selectedImageBytes!,
+                                    fit: BoxFit.cover,
+                                  ),
+                                )
+                                : existingImageUrl != null
+                                ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(7),
+                                  child: Image.network(
+                                    existingImageUrl!,
+                                    fit: BoxFit.cover,
+                                    errorBuilder:
+                                        (context, error, stackTrace) => Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.broken_image,
+                                              color: Colors.grey,
+                                              size: 40,
+                                            ),
+                                            SizedBox(height: 8),
+                                            Text(
+                                              'Bild konnte nicht geladen werden',
+                                              style: TextStyle(
+                                                color: Colors.grey,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                  ),
+                                )
+                                : Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.add_a_photo,
+                                      color: Colors.grey,
+                                      size: 40,
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      'Klicken Sie hier, um ein Bild hinzuzufügen',
+                                      style: TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                      ),
+                    ),
+                    if (selectedImageBytes != null || existingImageUrl != null)
+                      TextButton(
+                        onPressed: () {
+                          setDialogState(() {
+                            selectedImageBytes = null;
+                            selectedImageName = null;
+                            existingImageUrl = null;
+                          });
+                        },
+                        child: Text(
+                          'Bild entfernen',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      ),
+
+                    _buildLabeledTextField('Name:', nameController),
+                    _buildLabeledTextField(
+                      'Beschreibung:',
+                      descriptionController,
+                      maxLines: 3,
+                    ),
+                    _buildLabeledTextField('Marke:', brandController),
+                    _buildLabeledTextField('Größe:', sizeController),
+
+                    // Location Dropdown
+                    _buildLabeledDropdown(
+                      'Standort:',
+                      selectedLocation,
+                      LOCATIONS,
+                      (value) =>
+                          setDialogState(() => selectedLocation = value!),
+                    ),
+
+                    // Gender Dropdown
+                    _buildLabeledDropdown(
+                      'Gender:',
+                      selectedGender,
+                      GENDERS,
+                      (value) => setDialogState(() => selectedGender = value!),
+                    ),
+
+                    // Category Dropdown
+                    _buildLabeledDropdown(
+                      'Kategorie:',
+                      selectedCategory,
+                      CATEGORIES,
+                      (value) {
+                        setDialogState(() {
+                          selectedCategory = value!;
+                          // Reset subcategory when category changes
+                          selectedSubcategory = SUBCATEGORIES[value]!.first;
+                        });
+                      },
+                    ),
+
+                    // Subcategory Dropdown
+                    _buildLabeledDropdown(
+                      'Unterkategorie:',
+                      selectedSubcategory,
+                      SUBCATEGORIES[selectedCategory]!,
+                      (value) =>
+                          setDialogState(() => selectedSubcategory = value!),
+                    ),
+
+                    // Zustand Dropdown
+                    _buildLabeledDropdown(
+                      'Zustand:',
+                      selectedZustand,
+                      CONDITIONS,
+                      (value) => setDialogState(() => selectedZustand = value!),
                     ),
                   ],
                 ),
-          ),
-    );
+              ),
+              actions: [
+                TextButton(
+                  child: Text(
+                    'Abbrechen',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                  onPressed: () => Navigator.pop(context, false),
+                ),
+                TextButton(
+                  onPressed:
+                      isUploading
+                          ? null
+                          : () async {
+                            // Validate required fields
+                            if (nameController.text.trim().isEmpty) {
+                              _showError('Name ist erforderlich');
+                              return;
+                            }
 
-    if (result == true) {
-      await _loadData();
-    }
+                            try {
+                              setDialogState(() => isUploading = true);
+
+                              final updatedItem = Item(
+                                id: item?.id ?? 0,
+                                name: nameController.text.trim(),
+                                description: descriptionController.text.trim(),
+                                brand: brandController.text.trim(),
+                                size: sizeController.text.trim(),
+                                available: item?.available ?? true,
+                                location: selectedLocation,
+                                gender: selectedGender,
+                                category: selectedCategory,
+                                subcategory: selectedSubcategory,
+                                zustand: selectedZustand,
+                                imageUrl: existingImageUrl ?? '',
+                              );
+
+                              if (isCreating) {
+                                // Create item
+                                final createdItem =
+                                    await AdminService.createItem(updatedItem);
+
+                                // Upload image if selected
+                                if (selectedImageBytes != null &&
+                                    selectedImageName != null) {
+                                  final imageUrl =
+                                      await AdminService.uploadItemImageBytes(
+                                        createdItem.id,
+                                        selectedImageBytes!,
+                                        selectedImageName!,
+                                      );
+
+                                  if (imageUrl != null) {
+                                    // Update item with image URL
+                                    await AdminService.updateItem(
+                                      createdItem.id,
+                                      createdItem.copyWith(imageUrl: imageUrl),
+                                    );
+                                  }
+                                }
+                              } else {
+                                // Update item
+                                await AdminService.updateItem(
+                                  item.id,
+                                  updatedItem,
+                                );
+
+                                // Upload image if selected
+                                if (selectedImageBytes != null &&
+                                    selectedImageName != null) {
+                                  final imageUrl =
+                                      await AdminService.uploadItemImageBytes(
+                                        item.id,
+                                        selectedImageBytes!,
+                                        selectedImageName!,
+                                      );
+
+                                  if (imageUrl != null) {
+                                    // Update item with image URL
+                                    await AdminService.updateItem(
+                                      item.id,
+                                      updatedItem.copyWith(imageUrl: imageUrl),
+                                    );
+                                  }
+                                }
+                              }
+                              Navigator.pop(context, true);
+                            } catch (e) {
+                              print('DEBUG: Item save error: $e');
+                              setDialogState(() => isUploading = false);
+                              if (e.toString().contains('Token') ||
+                                  e.toString().contains('401') ||
+                                  e.toString().contains('403')) {
+                                Navigator.pop(context, false);
+                                _logout();
+                                return;
+                              }
+                              _showError(e.toString());
+                            }
+                          },
+                  child:
+                      isUploading
+                          ? SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Color(0xFF007AFF),
+                            ),
+                          )
+                          : Text(
+                            isCreating ? 'Erstellen' : 'Speichern',
+                            style: TextStyle(color: Color(0xFF007AFF)),
+                          ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    ).then((result) {
+      if (result == true) {
+        _loadData();
+      }
+    });
   }
 
   Widget _buildLabeledTextField(
@@ -822,7 +1037,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   style: TextStyle(color: Colors.white),
                 ),
                 SizedBox(height: 8),
-                Text('ID: ${user.id}', style: TextStyle(color: Colors.grey)),
+                Text(
+                  'ID: ${user.userId}',
+                  style: TextStyle(color: Colors.grey),
+                ),
               ],
             ),
             actions: [
@@ -861,5 +1079,42 @@ class _AdminDashboardState extends State<AdminDashboard> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+}
+
+// Extension to support copyWith for Item model
+extension ItemExtension on Item {
+  Item copyWith({
+    int? id,
+    String? name,
+    String? size,
+    bool? available,
+    String? description,
+    String? brand,
+    String? imageUrl,
+    double? averageRating,
+    int? reviewCount,
+    String? location,
+    String? gender,
+    String? category,
+    String? subcategory,
+    String? zustand,
+  }) {
+    return Item(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      size: size ?? this.size,
+      available: available ?? this.available,
+      description: description ?? this.description,
+      brand: brand ?? this.brand,
+      imageUrl: imageUrl ?? this.imageUrl,
+      averageRating: averageRating ?? this.averageRating,
+      reviewCount: reviewCount ?? this.reviewCount,
+      location: location ?? this.location,
+      gender: gender ?? this.gender,
+      category: category ?? this.category,
+      subcategory: subcategory ?? this.subcategory,
+      zustand: zustand ?? this.zustand,
+    );
   }
 }

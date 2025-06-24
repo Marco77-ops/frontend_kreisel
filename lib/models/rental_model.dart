@@ -3,8 +3,8 @@ import 'package:kreisel_frontend/models/user_model.dart';
 
 class Rental {
   final int id;
-  final Item item; // Geändert von itemId zu Item Objekt
-  final User user; // Geändert von userId zu User Objekt
+  final Item item; // Changed from itemId to Item object
+  final User user; // Changed from userId to User object
   final DateTime rentalDate;
   final DateTime endDate;
   final DateTime? returnDate;
@@ -28,19 +28,27 @@ class Rental {
   }
 
   factory Rental.fromJson(Map<String, dynamic> json) {
-    print('DEBUG: Parsing rental JSON: $json');
-
     try {
+      print('DEBUG: Parsing rental JSON: $json');
+
       // Handle both direct IDs and nested objects
+      final userData = json['user'];
+      print('DEBUG: User data from rental: $userData');
+
       final user =
-          json['user'] != null
-              ? User.fromJson(json['user'])
+          userData != null
+              ? User.fromJson(userData)
               : User(
                 userId: json['userId'] ?? 0,
                 email: json['userEmail'] ?? '',
                 fullName: json['userFullName'] ?? '',
                 role: json['userRole'] ?? 'USER',
               );
+
+      print(
+        'DEBUG: Created user object with fullName: ${user.fullName}, email: ${user.email}',
+      );
+
       final item =
           json['item'] != null
               ? Item.fromJson(json['item'])
@@ -52,7 +60,9 @@ class Rental {
                 gender: json['gender'] ?? '',
                 category: json['category'] ?? '',
                 subcategory: json['subcategory'] ?? '',
-                zustand: json['zustand'] ?? 'GOOD', // Add this line
+                zustand:
+                    json['zustand'] ??
+                    'GEBRAUCHT', // Updated to match backend enum
               );
 
       return Rental(
@@ -69,16 +79,16 @@ class Rental {
         status: json['status'] ?? 'ACTIVE',
       );
     } catch (e) {
-      print('DEBUG: Error parsing rental: $e');
-      print('DEBUG: Problematic JSON: $json');
+      print('Error parsing rental: $e');
+      print('Problematic JSON: $json');
       rethrow;
     }
   }
 
   Map<String, dynamic> toJson() => {
     'id': id,
-    'item': item.toJson(), // Konvertiere Item zu JSON
-    'user': user.toJson(), // Konvertiere User zu JSON
+    'item': item.toJson(), // Convert Item to JSON
+    'user': user.toJson(), // Convert User to JSON
     'rentalDate': rentalDate.toIso8601String(),
     'endDate': endDate.toIso8601String(),
     if (returnDate != null) 'returnDate': returnDate!.toIso8601String(),
@@ -86,7 +96,7 @@ class Rental {
     'status': status,
   };
 
-  // Helper Getter für Kompatibilität
+  // Helper getters for compatibility
   int get itemId => item.id;
-  int get userId => user.id;
+  int get userId => user.userId; // Fixed to access userId instead of id
 }

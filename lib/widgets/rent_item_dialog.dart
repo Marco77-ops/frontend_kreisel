@@ -2,14 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:kreisel_frontend/models/item_model.dart';
 import 'package:kreisel_frontend/services/api_service.dart';
-import 'package:kreisel_frontend/utils/sound_utils.dart'; // Add this import
 
 class RentItemDialog extends StatefulWidget {
   final Item item;
   final VoidCallback onRented;
 
-  const RentItemDialog({Key? key, required this.item, required this.onRented})
-    : super(key: key);
+  const RentItemDialog({super.key, required this.item, required this.onRented});
 
   @override
   _RentItemDialogState createState() => _RentItemDialogState();
@@ -59,9 +57,7 @@ class _RentItemDialogState extends State<RentItemDialog> {
               ),
             },
             onValueChanged: (int value) {
-              withClickSound(() {
-                setState(() => selectedMonths = value);
-              });
+              setState(() => selectedMonths = value);
             },
           ),
           const SizedBox(height: 16),
@@ -77,9 +73,10 @@ class _RentItemDialogState extends State<RentItemDialog> {
       actions: [
         CupertinoDialogAction(
           child: const Text('Abbrechen'),
-          onPressed: () => withClickSound(() => Navigator.pop(context)),
+          onPressed: () => Navigator.pop(context),
         ),
         CupertinoDialogAction(
+          onPressed: isLoading ? null : _rentItem,
           child:
               isLoading
                   ? const CupertinoActivityIndicator()
@@ -87,7 +84,6 @@ class _RentItemDialogState extends State<RentItemDialog> {
                     'Jetzt ausleihen',
                     style: TextStyle(color: Colors.blue),
                   ),
-          onPressed: isLoading ? null : () => withClickSound(_rentItem),
         ),
       ],
     );
@@ -123,7 +119,7 @@ class _RentItemDialogState extends State<RentItemDialog> {
               actions: [
                 CupertinoDialogAction(
                   child: const Text('OK'),
-                  onPressed: () => withClickSound(() => Navigator.pop(context)),
+                  onPressed: () => Navigator.pop(context),
                 ),
               ],
             ),

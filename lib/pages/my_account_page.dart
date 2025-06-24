@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:kreisel_frontend/services/api_service.dart';
 import 'package:kreisel_frontend/pages/login_page.dart';
-import 'package:kreisel_frontend/utils/sound_utils.dart';
 
 class MyAccountPage extends StatefulWidget {
+  const MyAccountPage({super.key});
+
   @override
   _MyAccountPageState createState() => _MyAccountPageState();
 }
@@ -31,7 +32,7 @@ class _MyAccountPageState extends State<MyAccountPage> {
 
   Future<void> _updateName() async {
     final newName = _nameController.text.trim();
-    
+
     if (newName.isEmpty) {
       _showAlert('Fehler', 'Name darf nicht leer sein');
       return;
@@ -43,10 +44,10 @@ class _MyAccountPageState extends State<MyAccountPage> {
     }
 
     setState(() => _isLoading = true);
-    
+
     try {
       final updatedUser = await ApiService.updateUserName(newName);
-      
+
       if (mounted) {
         setState(() {
           _nameController.text = updatedUser.fullName;
@@ -58,7 +59,7 @@ class _MyAccountPageState extends State<MyAccountPage> {
       print('DEBUG: Name update error: $e');
       if (mounted) {
         setState(() => _isLoading = false);
-        
+
         if (e.toString().contains('Sitzung abgelaufen')) {
           Navigator.of(context).pushAndRemoveUntil(
             CupertinoPageRoute(builder: (context) => LoginPage()),
@@ -66,7 +67,7 @@ class _MyAccountPageState extends State<MyAccountPage> {
           );
           return;
         }
-        
+
         _showAlert('Fehler', e.toString().replaceAll('Exception: ', ''));
       }
     }
@@ -75,19 +76,22 @@ class _MyAccountPageState extends State<MyAccountPage> {
   Future<void> _updatePassword() async {
     final currentPass = _currentPasswordController.text;
     final newPass = _newPasswordController.text;
-    
+
     if (currentPass.isEmpty || newPass.isEmpty) {
       _showAlert('Fehler', 'Bitte beide Passwörter eingeben');
       return;
     }
 
     if (newPass.length < 6) {
-      _showAlert('Fehler', 'Neues Passwort muss mindestens 6 Zeichen lang sein');
+      _showAlert(
+        'Fehler',
+        'Neues Passwort muss mindestens 6 Zeichen lang sein',
+      );
       return;
     }
 
     setState(() => _isLoading = true);
-    
+
     try {
       await ApiService.updatePassword(currentPass, newPass);
       _currentPasswordController.clear();
@@ -106,7 +110,7 @@ class _MyAccountPageState extends State<MyAccountPage> {
 
   Future<void> _logout() async {
     setState(() => _isLoading = true);
-    
+
     try {
       await ApiService.logout();
       if (mounted) {
@@ -139,9 +143,9 @@ class _MyAccountPageState extends State<MyAccountPage> {
             SizedBox(height: 16),
             _buildButton('Name aktualisieren', _updateName),
           ]),
-          
+
           SizedBox(height: 32),
-          
+
           _buildSection('Passwort ändern', [
             _buildTextField(
               controller: _currentPasswordController,
@@ -158,7 +162,7 @@ class _MyAccountPageState extends State<MyAccountPage> {
             ),
             SizedBox(height: 16),
             _buildButton('Passwort ändern', _updatePassword),
-        ]),
+          ]),
 
           // Trennlinie
           Padding(
@@ -211,7 +215,7 @@ class _MyAccountPageState extends State<MyAccountPage> {
                 children: [
                   CupertinoButton(
                     padding: EdgeInsets.zero,
-                    onPressed: () => withClickSound(() => Navigator.pop(context)),
+                    onPressed: () => Navigator.pop(context),
                     child: Icon(CupertinoIcons.back, color: Color(0xFF007AFF)),
                   ),
                   Expanded(
@@ -229,9 +233,7 @@ class _MyAccountPageState extends State<MyAccountPage> {
             ),
 
             // Content
-            Expanded(
-              child: _buildContent(),
-            ),
+            Expanded(child: _buildContent()),
           ],
         ),
       ),
@@ -270,31 +272,32 @@ class _MyAccountPageState extends State<MyAccountPage> {
     bool isDestructive = false,
     IconData? icon,
   }) {
-    return Container(
+    return SizedBox(
       width: double.infinity,
       child: CupertinoButton(
         padding: EdgeInsets.symmetric(vertical: 12),
         color: isDestructive ? Color(0xFFFF453A) : Color(0xFF007AFF),
         borderRadius: BorderRadius.circular(12),
-        onPressed: _isLoading ? null : () => withClickSound(onPressed),
-        child: _isLoading
-            ? CupertinoActivityIndicator(color: Colors.white)
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (icon != null) ...[
-                    Icon(icon, size: 20),
-                    SizedBox(width: 8),
-                  ],
-                  Text(
-                    text,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+        onPressed: _isLoading ? null : onPressed,
+        child:
+            _isLoading
+                ? CupertinoActivityIndicator(color: Colors.white)
+                : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (icon != null) ...[
+                      Icon(icon, size: 20),
+                      SizedBox(width: 8),
+                    ],
+                    Text(
+                      text,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
       ),
     );
   }
@@ -302,16 +305,17 @@ class _MyAccountPageState extends State<MyAccountPage> {
   void _showAlert(String title, String message) {
     showCupertinoDialog(
       context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          CupertinoDialogAction(
-            child: Text('OK'),
-            onPressed: () => Navigator.pop(context),
+      builder:
+          (context) => CupertinoAlertDialog(
+            title: Text(title),
+            content: Text(message),
+            actions: [
+              CupertinoDialogAction(
+                child: Text('OK'),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 }

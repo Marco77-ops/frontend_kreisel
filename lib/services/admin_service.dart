@@ -1,5 +1,8 @@
 import 'dart:convert';
+import 'dart:io'; // Add this import for File class
+import 'dart:typed_data'; // Add this import for Uint8List
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart' show MediaType;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kreisel_frontend/models/item_model.dart';
 import 'package:kreisel_frontend/models/rental_model.dart';
@@ -50,14 +53,13 @@ class AdminService {
   }
 
   // Rental Management
+  // Get all rentals with user details
   static Future<List<Rental>> getAllRentals() async {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/rentals'),
         headers: await _getAdminHeaders(),
       );
-
-      print('DEBUG: Get rentals response: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final responseBody = response.body.trim();
@@ -66,7 +68,32 @@ class AdminService {
         }
 
         final List<dynamic> data = jsonDecode(responseBody);
-        return data.map((json) => Rental.fromJson(json)).toList();
+        final rentals = <Rental>[];
+
+        for (var rentalJson in data) {
+          if (rentalJson['user'] == null && rentalJson['userId'] != null) {
+            try {
+              final userResponse = await http.get(
+                Uri.parse('$baseUrl/users/${rentalJson['userId']}'),
+                headers: await _getAdminHeaders(),
+              );
+
+              if (userResponse.statusCode == 200) {
+                final userData = jsonDecode(userResponse.body);
+                print('DEBUG: Got user data for rental: $userData');
+                // Add user data to rental JSON
+                rentalJson['user'] = userData;
+              }
+            } catch (e) {
+              print('DEBUG: Error fetching user ${rentalJson['userId']}: $e');
+            }
+          }
+
+          rentals.add(Rental.fromJson(rentalJson));
+        }
+
+        print('DEBUG: Created ${rentals.length} rental objects');
+        return rentals;
       }
 
       throw Exception(_handleError(response));
@@ -503,6 +530,136 @@ class AdminService {
       return token != null;
     } catch (e) {
       return false;
+    }
+  }
+
+  // Add this method to your AdminService class
+  static Future<String?> uploadItemImage(int itemId, File imageFile) async {
+    try {
+      final token = await _getAdminToken();
+      if (token == null) {
+        throw Exception('Not authenticated');
+      }
+
+      // FIXED URL - remove duplicate "/api"
+      var uploadUrl = Uri.parse('$baseUrl/items/$itemId/image');
+
+      // Create a multipart request
+      var request = http.MultipartRequest('POST', uploadUrl);
+
+      // Add authorization
+      request.headers['Authorization'] = 'Bearer $token';
+
+      // Get file extension from path
+      final String filename = imageFile.path.split('/').last;
+
+      // Add the file to the request
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'image',
+          imageFile.path,
+          filename: filename,
+        ),
+      );
+
+      // Send the request and get the response
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        final jsonData = json.decode(response.body);
+        return jsonData['imageUrl'];
+      } else {
+        print(
+          'Image upload failed: ${response.statusCode} ${response.reasonPhrase}',
+        );
+        print('Response body: ${response.body}');
+        throw Exception('Failed to upload image: ${response.reasonPhrase}');
+      }
+    } catch (e) {
+      print('Error uploading image: $e');
+      return null;
+    }
+  }
+
+  /// Uploads an image for an item using bytes data and returns the image URL
+  ///
+  /// [itemId] - The ID of the item to attach the image to
+  /// [imageBytes] - The image bytes to upload
+  /// [filename] - The filename for the uploaded image
+  static Future<String?> uploadItemImageBytes(
+    int itemId,
+    Uint8List imageBytes,
+    String filename,
+  ) async {
+    try {
+      final token = await _getAdminToken();
+      if (token == null) {
+        throw Exception('Not authenticated');
+      }
+
+      print(
+        'DEBUG: Starting image upload for item $itemId with filename: $filename',
+      );
+
+      // FIXED URL - remove duplicate "/api"
+      var uploadUrl = Uri.parse('$baseUrl/items/$itemId/image');
+      print('DEBUG: Upload URL: $uploadUrl');
+
+      // Create a multipart request
+      var request = http.MultipartRequest('POST', uploadUrl);
+
+      // Add authorization
+      request.headers['Authorization'] = 'Bearer $token';
+      print('DEBUG: Using auth header: ${request.headers['Authorization']}');
+
+      // Add the file bytes to the request
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'image',
+          imageBytes,
+          filename: filename,
+          contentType: _getContentType(filename), // Add content type
+        ),
+      );
+
+      // Send the request and get the response
+      print('DEBUG: Sending request...');
+      var streamedResponse = await request.send();
+      print('DEBUG: Got response status: ${streamedResponse.statusCode}');
+      var response = await http.Response.fromStream(streamedResponse);
+
+      print('DEBUG: Image upload response: ${response.statusCode}');
+      print('DEBUG: Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final jsonData = json.decode(response.body);
+        return jsonData['imageUrl'];
+      } else {
+        print('DEBUG: Image upload failed with status ${response.statusCode}');
+        throw Exception(
+          'Failed to upload image: ${response.statusCode} ${response.reasonPhrase}',
+        );
+      }
+    } catch (e) {
+      print('ERROR: Image upload failed: $e');
+      return null;
+    }
+  }
+
+  /// Helper method to determine content type based on file extension
+  static MediaType _getContentType(String filename) {
+    final extension = filename.toLowerCase().split('.').last;
+    switch (extension) {
+      case 'jpg':
+      case 'jpeg':
+        return MediaType('image', 'jpeg');
+      case 'png':
+        return MediaType('image', 'png');
+      case 'gif':
+        return MediaType('image', 'gif');
+      default:
+        return MediaType('image', 'jpeg'); // Default to JPEG
     }
   }
 }

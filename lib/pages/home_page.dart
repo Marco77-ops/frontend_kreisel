@@ -6,17 +6,18 @@ import 'package:kreisel_frontend/services/api_service.dart';
 import 'package:kreisel_frontend/widgets/rent_item_dialog.dart';
 import 'package:kreisel_frontend/widgets/snow_fall_widget.dart';
 import 'package:kreisel_frontend/widgets/hover_button.dart';
-import 'package:kreisel_frontend/services/audio_service.dart';
 import 'package:kreisel_frontend/pages/item_detail_page.dart';
 import 'package:kreisel_frontend/pages/my_account_page.dart';
-import 'package:kreisel_frontend/utils/sound_utils.dart';
-import 'package:kreisel_frontend/widgets/music_button.dart';
 
 class HomePage extends StatefulWidget {
   final String selectedLocation;
   final String locationDisplayName;
 
-  HomePage({required this.selectedLocation, required this.locationDisplayName});
+  const HomePage({
+    super.key,
+    required this.selectedLocation,
+    required this.locationDisplayName,
+  });
 
   @override
   _HomePageState createState() => _HomePageState();
@@ -32,6 +33,8 @@ class _HomePageState extends State<HomePage> {
   String? _selectedCategory;
   String? _selectedSubcategory;
 
+  // Remove AudioService line
+
   // Add this map at the class level
   final Map<String, List<String>> categorySubcategories = {
     'KLEIDUNG': ['HOSEN', 'JACKEN'],
@@ -45,6 +48,7 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _loadItems();
+    // Remove music initialization
   }
 
   Future<void> _loadItems() async {
@@ -99,19 +103,19 @@ class _HomePageState extends State<HomePage> {
 
             // Gender Filter - case insensitive
             if (_selectedGender != null &&
-                item.gender.toUpperCase() != _selectedGender) {
+                item.gender?.toUpperCase() != _selectedGender) {
               return false;
             }
 
             // Category Filter - case insensitive
             if (_selectedCategory != null &&
-                item.category.toUpperCase() != _selectedCategory) {
+                item.category?.toUpperCase() != _selectedCategory) {
               return false;
             }
 
             // Subcategory Filter - case insensitive
             if (_selectedSubcategory != null &&
-                item.subcategory.toUpperCase() != _selectedSubcategory) {
+                item.subcategory?.toUpperCase() != _selectedSubcategory) {
               return false;
             }
 
@@ -123,7 +127,6 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
       body: Stack(
         children: [
           // Snow effect background
@@ -140,8 +143,7 @@ class _HomePageState extends State<HomePage> {
                     children: [
                       HoverButton(
                         tooltip: 'Zurück',
-                        onPressed:
-                            () => withClickSound(() => Navigator.pop(context)),
+                        onPressed: () => Navigator.pop(context),
                         child: Icon(CupertinoIcons.back),
                       ),
                       SizedBox(width: 16),
@@ -174,8 +176,7 @@ class _HomePageState extends State<HomePage> {
                           size: 28,
                         ),
                       ),
-                      SizedBox(width: 16),
-                      MusicButton(), // Replace the old HoverButton with this
+                      // Remove MusicButton
                     ],
                   ),
                 ),
@@ -217,13 +218,12 @@ class _HomePageState extends State<HomePage> {
                       SizedBox(height: 12),
                       // Availability toggle
                       GestureDetector(
-                        onTap:
-                            () => withClickSound(() {
-                              setState(() {
-                                _showOnlyAvailable = !_showOnlyAvailable;
-                                _filterItems();
-                              });
-                            }),
+                        onTap: () {
+                          setState(() {
+                            _showOnlyAvailable = !_showOnlyAvailable;
+                            _filterItems();
+                          });
+                        },
                         child: Container(
                           padding: EdgeInsets.symmetric(
                             horizontal: 12,
@@ -288,7 +288,7 @@ class _HomePageState extends State<HomePage> {
 
   // Update the _buildFilterChips method
   Widget _buildFilterChips() {
-    return Container(
+    return SizedBox(
       height: 120,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -512,17 +512,16 @@ class _HomePageState extends State<HomePage> {
                             padding: EdgeInsets.symmetric(vertical: 8),
                             color: Color(0xFF007AFF),
                             borderRadius: BorderRadius.circular(12),
-                            onPressed:
-                                () => withClickSound(() {
-                                  showCupertinoDialog(
-                                    context: context,
-                                    builder:
-                                        (context) => RentItemDialog(
-                                          item: item,
-                                          onRented: _loadItems,
-                                        ),
-                                  );
-                                }),
+                            onPressed: () {
+                              showCupertinoDialog(
+                                context: context,
+                                builder:
+                                    (context) => RentItemDialog(
+                                      item: item,
+                                      onRented: _loadItems,
+                                    ),
+                              );
+                            },
                             child: Text(
                               'Ausleihen',
                               style: TextStyle(
@@ -543,7 +542,8 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildInfoChip(String label) {
+  Widget _buildInfoChip(String? label) {
+    if (label == null) return SizedBox.shrink();
     return Container(
       margin: EdgeInsets.only(right: 8),
       padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -568,7 +568,7 @@ class _HomePageState extends State<HomePage> {
     return FilterChip(
       label: Text(label),
       selected: isSelected,
-      onSelected: (_) => withClickSound(() => onSelected(label)),
+      onSelected: (_) => onSelected(label),
       selectedColor: Color(0xFF007AFF),
       backgroundColor: Color(0xFF1C1C1E),
       checkmarkColor: Colors.white,
@@ -603,27 +603,23 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _navigateToRentals() {
-    withClickSound(() {
-      Navigator.push(
-        context,
-        CupertinoPageRoute(builder: (context) => MyRentalsPage()),
-      );
-    });
+    Navigator.push(
+      context,
+      CupertinoPageRoute(builder: (context) => MyRentalsPage()),
+    );
   }
 
   void _navigateToAccount() {
-    withClickSound(() {
-      Navigator.push(
-        context,
-        PageRouteBuilder(
-          pageBuilder:
-              (context, animation, secondaryAnimation) => MyAccountPage(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-          transitionDuration: Duration(milliseconds: 300),
-        ),
-      );
-    });
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        pageBuilder:
+            (context, animation, secondaryAnimation) => MyAccountPage(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+        transitionDuration: Duration(milliseconds: 300),
+      ),
+    );
   }
 }

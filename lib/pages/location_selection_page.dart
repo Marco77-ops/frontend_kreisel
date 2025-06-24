@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:kreisel_frontend/pages/home_page.dart';
-import 'package:kreisel_frontend/services/api_service.dart';
 import 'package:kreisel_frontend/widgets/snow_fall_widget.dart'; // Add this import
-import 'package:kreisel_frontend/widgets/music_button.dart'; // Import the MusicButton widget
 
 class LocationSelectionPage extends StatelessWidget {
   final List<Map<String, dynamic>> locations = [
@@ -26,6 +24,8 @@ class LocationSelectionPage extends StatelessWidget {
       'color': Color(0xFFFF9500),
     },
   ];
+
+  LocationSelectionPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -137,8 +137,6 @@ class LocationSelectionPage extends StatelessWidget {
                     ],
                   ),
                 ),
-                // Music button
-                Positioned(top: 16, right: 16, child: MusicButton()),
               ],
             ),
           ),
